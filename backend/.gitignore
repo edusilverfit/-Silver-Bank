@@ -1,0 +1,21 @@
+# Dependências
+node_modules/
+
+# Arquivos gerados
+dist/
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Arquivos auxiliares de ferramentas
+.agents/
+.claude/
+.windsurf/
+
+# Relatórios de cobertura
+coverage/
+
+# Arquivos gerados pelo Prisma
+generated/prisma/

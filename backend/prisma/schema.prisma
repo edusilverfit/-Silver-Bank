@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Tipos de transação
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  PIX
+}
+
+enum PixKeyType {
+  CPF
+  EMAIL
+  PHONE
+  RANDOM
+}
+
+// Status das transações
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  PIX
+  PIX_KEY
+  SECURITY
+}
+
+enum SecurityActivityType {
+  LOGIN
+  FAILED_LOGIN
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  LOGOUT
+}
+
+// Usuários do Silver Bank
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts Account[]
+  passwordResetTokens PasswordResetToken[]
+  notifications Notification[]
+  securityActivities SecurityActivity[]
+  virtualCard VirtualCard?
+}
+
+enum VirtualCardStatus {
+  ACTIVE
+  BLOCKED
+}
+
+// Contas bancárias
+model Account {
+  id            String   @id @default(uuid())
+  accountNumber String   @unique
+  balance       Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  pixKeys PixKey[]
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  outgoingTransactions Transaction[] @relation("OutgoingTransactions")
+  incomingTransactions Transaction[] @relation("IncomingTransactions")
+}
+
+model PixKey {
+  id        String     @id @default(uuid())
+  key       String     @unique
+  type      PixKeyType
+  createdAt DateTime   @default(now())
+
+  accountId String
+  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+// Transações financeiras
+model Transaction {
+  id          String            @id @default(uuid())
+  type        TransactionType
+  status      TransactionStatus @default(COMPLETED)
+  amount      Decimal            @db.Decimal(15, 2)
+  description String?
+  createdAt   DateTime           @default(now())
+
+  fromAccountId String?
+  fromAccount   Account? @relation("OutgoingTransactions", fields: [fromAccountId], references: [id])
+
+  toAccountId String?
+  toAccount   Account? @relation("IncomingTransactions", fields: [toAccountId], references: [id])
+}
+
+// Tokens de recuperação de senha
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Notificações dos usuários
+model Notification {
+  id        String           @id @default(uuid())
+  title     String
+  message   String
+  type      NotificationType
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// Histórico de atividades de segurança
+model SecurityActivity {
+  id        String               @id @default(uuid())
+  type      SecurityActivityType
+  description String
+  createdAt DateTime             @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// Cartão virtual demonstrativo do usuário
+model VirtualCard {
+  id           String            @id @default(uuid())
+  lastFour     String
+  holderName   String
+  expiryMonth  Int
+  expiryYear   Int
+  status       VirtualCardStatus @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  userId       String             @unique
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
