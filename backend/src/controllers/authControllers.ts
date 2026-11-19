@@ -12,12 +12,13 @@ import { createNotification } from "../services/notificationService.js";
 
 import { SecurityActivityType } from "../../generated/prisma/client.js";
 import { createSecurityActivity } from "../services/securityActivityService.js";
+import { randomInt } from "crypto";
+
 
 export async function register(req: Request, res: Response) {
   try {
     const { name, email, password } = req.body;
 
-    // Validar os campos
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -45,11 +46,8 @@ export async function register(req: Request, res: Response) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Verificar se o usuário já existe
     const existingUser = await prisma.user.findUnique({
-      where: {
-        email: normalizedEmail,
-      },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -59,28 +57,49 @@ export async function register(req: Request, res: Response) {
       });
     }
 
-    // Proteger a senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Criar usuário no banco
-    const user = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: normalizedEmail,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-      },
+    // Cria usuário e conta bancária na mesma transação
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: name.trim(),
+          email: normalizedEmail,
+          password: hashedPassword,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+        },
+      });
+
+      // Gera número de conta com 8 dígitos
+      const accountNumber = randomInt(10000000, 100000000).toString();
+
+      // Cria a conta bancária vinculada ao usuário
+      const account = await tx.account.create({
+        data: {
+          accountNumber,
+          userId: user.id,
+        },
+        select: {
+          id: true,
+          accountNumber: true,
+          balance: true,
+          createdAt: true,
+        },
+      });
+
+      return { user, account };
     });
 
     return res.status(201).json({
       success: true,
-      message: "Usuário cadastrado com sucesso!",
-      user,
+      message: "Usuário e conta bancária cadastrados com sucesso!",
+      user: result.user,
+      account: result.account,
     });
 
   } catch (error) {
