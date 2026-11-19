@@ -45,10 +45,16 @@ function App() {
   navigate("/login");
 }
 
-  if (token) {
-  return <Dashboard onLogout={handleLogout} />;
-}
 
+if (currentPath === "/reset-password") {
+    return (
+      <ResetPassword
+        onBack={() => navigate("/login")}
+      />
+    );
+  }
+
+  
   if (currentPath === "/forgot-password") {
     return (
       <ForgotPassword
@@ -57,13 +63,6 @@ function App() {
     );
   }
 
-  if (currentPath === "/reset-password") {
-    return (
-      <ResetPassword
-        onBack={() => navigate("/login")}
-      />
-    );
-  }
 
   if (currentPath === "/register") {
     return (
@@ -73,6 +72,10 @@ function App() {
       />
     );
   }
+
+   if (token) {
+  return <Dashboard onLogout={handleLogout} />;
+}
 
   return (
   <Login
