@@ -11,13 +11,12 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import securityActivityRoutes from "./routes/securityActivityRoutes.js";
 import virtualCardRoutes from "./routes/virtualCardRoutes.js";
 
-
-
 const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
   "https://frontend-eduardo-akere.vercel.app",
+  "https://frontend-alpha-henna-bbpds6rrf9.vercel.app",
 ];
 
 app.use(
