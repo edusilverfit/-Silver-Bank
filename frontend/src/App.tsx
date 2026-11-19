@@ -5,6 +5,7 @@ import Login from "./pages/login";
 import Dashboard from "./pages/Dashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Register from "./pages/register";
 
 function App() {
   const [token, setToken] = useState<string | null>(
@@ -64,12 +65,23 @@ function App() {
     );
   }
 
+  if (currentPath === "/register") {
+    return (
+      <Register
+        onBack={() => navigate("/login")}
+        onSuccess={() => navigate("/login")}
+      />
+    );
+  }
+
   return (
-    <Login
-      onLogin={handleLogin}
-      onForgotPassword={() => navigate("/forgot-password")}
-    />
-  );
+  <Login
+    onLogin={handleLogin}
+    onForgotPassword={() => navigate("/forgot-password")}
+    onRegister={() => navigate("/register")}
+  />
+);
+
 }
 
 export default App;

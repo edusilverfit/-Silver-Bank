@@ -4,9 +4,10 @@ import { apiRequest } from "../services/api";
 interface LoginProps {
   onLogin: (token: string) => void;
   onForgotPassword: () => void;
+  onRegister: () => void;
 }
 
-function Login({ onLogin, onForgotPassword }: LoginProps) {
+function Login({ onLogin, onForgotPassword, onRegister }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -84,7 +85,16 @@ function Login({ onLogin, onForgotPassword }: LoginProps) {
           <button type="submit" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}
           </button>
+
         </form>
+
+        <div className="register-link">
+          <p>Ainda não tem uma conta?</p>
+
+        <button type="button" onClick={onRegister}>
+        Criar minha conta
+        </button>
+        </div>
 
         <span>Silver Bank © 2026</span>
         <span>Eduardo Silveira</span>
