@@ -2,10 +2,10 @@ import app from "./app.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("--------------------------------");
   console.log("SILVER BANK API");
   console.log("--------------------------------");
   console.log(`Servidor iniciado na porta ${PORT}`);
-  console.log(`http://localhost:${PORT}`);
+  console.log(`Servidor disponível em 0.0.0.0:${PORT}`);
 });
