@@ -1,27 +1,61 @@
-import nodemailer from "nodemailer";
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: process.env.SMTP_SECURE === "true",
+function getSender() {
+  const email = process.env.BREVO_SENDER_EMAIL;
 
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
+  if (!email) {
+    throw new Error("BREVO_SENDER_EMAIL não configurado.");
+  }
+
+  return {
+    name: process.env.BREVO_SENDER_NAME || "Silver Bank",
+    email,
+  };
+}
+
+async function sendEmail(payload: {
+  to: { email: string; name?: string }[];
+  subject: string;
+  htmlContent: string;
+  textContent?: string;
+}) {
+  const apiKey = process.env.BREVO_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("BREVO_API_KEY não configurada.");
+  }
+
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey,
+    },
+    body: JSON.stringify({
+      sender: getSender(),
+      ...payload,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(`Erro ao enviar e-mail pela Brevo: ${error}`);
+  }
+
+  return response.json();
+}
 
 export async function sendPasswordResetEmail(
   email: string,
   name: string,
   resetLink: string
 ) {
-  await transporter.sendMail({
-    from: `"Silver Bank" <${process.env.SMTP_USER}>`,
-    to: email,
+  await sendEmail({
+    to: [{ email, name }],
     subject: "Recuperação de senha - Silver Bank",
 
-    html: `
+    htmlContent: `
       <div style="font-family: Arial, sans-serif; background: #080808; color: #ffffff; padding: 35px; border-radius: 10px;">
         <h1 style="color: #D4AF37;">Silver Bank</h1>
 
@@ -65,24 +99,26 @@ export async function sendPasswordResetEmail(
         </p>
       </div>
     `,
+
+    textContent: `Olá, ${name}! Acesse ${resetLink} para redefinir sua senha. Este link expira em 30 minutos.`,
   });
 }
 
 export async function sendTestEmail() {
-  const email = process.env.SMTP_USER;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
 
-  if (!email) {
-    throw new Error("SMTP_USER não configurado.");
+  if (!senderEmail) {
+    throw new Error("BREVO_SENDER_EMAIL não configurado.");
   }
 
-  await transporter.verify();
-
-  await transporter.sendMail({
-    from: `"Silver Bank" <${email}>`,
-    to: email,
+  await sendEmail({
+    to: [{ email: senderEmail }],
     subject: "Teste de e-mail - Silver Bank",
-    text: "Parabéns! O envio de e-mails do Silver Bank está funcionando corretamente.",
-    html: `
+
+    textContent:
+      "Parabéns! O envio de e-mails do Silver Bank está funcionando corretamente.",
+
+    htmlContent: `
       <div style="font-family: Arial; background: #080808; color: white; padding: 30px;">
         <h1 style="color: #D4AF37;">Silver Bank</h1>
         <h2>Teste de envio concluído!</h2>
