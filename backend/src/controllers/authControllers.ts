@@ -180,11 +180,16 @@ export async function login(req: Request, res: Response) {
     }
 
     // Gerar token
-    const token = jwt.sign(
-      { sub: user.id },
-      secret,
-      { expiresIn: "1d" }
-    );
+   const token = jwt.sign(
+  { sub: user.id },
+  secret,
+  {
+    expiresIn: "1d",
+    algorithm: "HS256",
+    issuer: "silver-bank-api",
+    audience: "silver-bank-users",
+  }
+);
 
     try {
   await createSecurityActivity(

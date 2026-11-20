@@ -23,12 +23,12 @@ export function authMiddleware(
     });
   }
 
-  const [, token] = authorization.split(" ");
+  const [scheme, token] = authorization.split(" ");
 
-  if (!token) {
+  if (scheme !== "Bearer" || !token) {
     return res.status(401).json({
       success: false,
-      message: "Token inválido.",
+      message: "Formato de token inválido.",
     });
   }
 
@@ -42,7 +42,11 @@ export function authMiddleware(
   }
 
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret, {
+      algorithms: ["HS256"],
+      issuer: "silver-bank-api",
+      audience: "silver-bank-users",
+    });
 
     if (
       typeof decoded === "string" ||
