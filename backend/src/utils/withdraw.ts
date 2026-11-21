@@ -3,7 +3,7 @@ export function validateWithdraw(amount: number, balance: number): boolean {
     return false;
   }
 
-  if (amount <= 0 || balance < 0) {
+  if (amount <= 0 || amount > 10000 || balance < 0) {
     return false;
   }
 

@@ -51,7 +51,12 @@ function generateToken() {
   return jwt.sign(
     { sub: "user-123" },
     JWT_SECRET,
-    { expiresIn: "1h" }
+    {
+      expiresIn: "1h",
+      algorithm: "HS256",
+      issuer: "silver-bank-api",
+      audience: "silver-bank-users",
+    }
   );
 }
 
@@ -132,9 +137,9 @@ describe("Transferências bancárias", () => {
 
     expect(response.status).toBe(400);
 
-    expect(response.body.message).toBe(
-      "Informe um valor válido."
-    );
+   expect(response.body.message).toBe(
+  "Informe um valor válido. O limite é R$ 50.000,00."
+);
   });
 
   it("deve retornar 404 quando a conta de origem não existir", async () => {
@@ -198,22 +203,30 @@ describe("Transferências bancárias", () => {
   });
 
   it("deve retornar 409 quando não houver saldo suficiente", async () => {
-    mockTx.account.findFirst.mockImplementation(async () => originAccount);
+  mockTx.account.findFirst.mockImplementation(async () => originAccount);
 
-    const response = await request(app)
-      .post("/api/accounts/transfer")
-      .set("Authorization", `Bearer ${generateToken()}`)
-      .send({
-        destinationAccount: "87654321",
-        amount: "600",
-      });
+  // Garantir que a conta de destino seja diferente da origem
+  mockTx.account.findUnique.mockImplementation(async () => targetAccount);
 
-    expect(response.status).toBe(409);
-
-    expect(response.body.message).toBe(
-      "Saldo insuficiente para realizar a transferência."
-    );
+  // Simular que o débito não foi realizado
+  mockTx.account.updateMany.mockResolvedValue({
+    count: 0,
   });
+
+  const response = await request(app)
+    .post("/api/accounts/transfer")
+    .set("Authorization", `Bearer ${generateToken()}`)
+    .send({
+      destinationAccount: "87654321",
+      amount: "600",
+    });
+
+  expect(response.status).toBe(409);
+
+  expect(response.body.message).toBe(
+    "Saldo insuficiente para realizar a transferência."
+  );
+});
 
   it("deve realizar a transferência com sucesso", async () => {
     mockTx.account.findFirst.mockImplementation(async () => originAccount);

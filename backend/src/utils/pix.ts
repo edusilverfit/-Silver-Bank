@@ -11,7 +11,7 @@ export function validatePix(
     return false;
   }
 
-  if (amount <= 0 || balance < 0) {
+  if (amount <= 0 || amount > 20000 || balance < 0) {
     return false;
   }
 

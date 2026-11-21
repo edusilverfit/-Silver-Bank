@@ -47,6 +47,9 @@ const mockPrisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
+  notification: {
+    create: jest.fn(),
+  },
 
   $transaction: jest.fn<
     (callback: (tx: typeof mockTx) => Promise<unknown>) => Promise<unknown>
@@ -62,7 +65,12 @@ function generateToken() {
   return jwt.sign(
     { sub: "user-123" },
     JWT_SECRET,
-    { expiresIn: "1h" }
+    {
+      expiresIn: "1h",
+      algorithm: "HS256",
+      issuer: "silver-bank-api",
+      audience: "silver-bank-users",
+    }
   );
 }
 

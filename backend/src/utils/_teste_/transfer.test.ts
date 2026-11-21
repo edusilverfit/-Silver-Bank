@@ -19,6 +19,18 @@ describe("validateTransfer", () => {
     expect(validateTransfer(-100, 500)).toBe(false);
   });
 
+  it("não deve aceitar valores com mais de duas casas decimais", () => {
+    expect(validateTransfer(100.999, 500)).toBe(false);
+  });
+
+  it("não deve aceitar saldo negativo", () => {
+    expect(validateTransfer(100, -500)).toBe(false);
+  });
+
+  it("não deve aceitar valores superiores ao limite", () => {
+    expect(validateTransfer(50001, 100000)).toBe(false);
+  });
+
   it("não deve aceitar valores inválidos", () => {
     expect(validateTransfer(NaN, 500)).toBe(false);
     expect(validateTransfer(Infinity, 500)).toBe(false);

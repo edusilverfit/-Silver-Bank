@@ -3,7 +3,12 @@ export function validateTransfer(amount: number, balance: number): boolean {
     return false;
   }
 
-  if (amount <= 0 || balance < 0) {
+  if (amount <= 0 || amount > 50000 || balance < 0) {
+    return false;
+  }
+
+  const scaledAmount = amount * 100;
+  if (Math.abs(scaledAmount - Math.round(scaledAmount)) > 1e-8) {
     return false;
   }
 

@@ -1309,111 +1309,142 @@ router.post("/transfer", authMiddleware, async (req: AuthRequest, res) => {
     if (
       typeof amount !== "string" ||
       !/^\d+(\.\d{1,2})?$/.test(amount) ||
-      Number(amount) <= 0
+      !Number.isFinite(Number(amount)) ||
+      Number(amount) <= 0 ||
+      Number(amount) > 50000
     ) {
       return res.status(400).json({
         success: false,
-        message: "Informe um valor válido.",
+        message: "Informe um valor válido. O limite é R$ 50.000,00.",
       });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Localizar conta de origem
-      const originAccount = await tx.account.findFirst({
-        where: {
-          userId: req.userId,
-        },
-      });
+    let result;
 
-      if (!originAccount) {
-        throw new Error("ORIGIN_ACCOUNT_NOT_FOUND");
-      }
+    // Tentar novamente em caso de conflito de concorrência
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await prisma.$transaction(
+          async (tx) => {
 
-      if (
-  !validateTransfer(
-    Number(amount),
-    Number(originAccount.balance)
-  )
-) {
+            // Localizar conta de origem
+            const originAccount = await tx.account.findFirst({
+              where: {
+                userId: req.userId,
+              },
+            });
 
-  throw new Error("INSUFFICIENT_BALANCE");
-}
+            if (!originAccount) {
+              throw new Error("ORIGIN_ACCOUNT_NOT_FOUND");
+            }
 
-      // Localizar conta de destino
-      const targetAccount = await tx.account.findUnique({
-        where: {
-          accountNumber: destinationAccount,
-        },
-      });
+            // Localizar conta de destino
+            const targetAccount = await tx.account.findUnique({
+              where: {
+                accountNumber: destinationAccount,
+              },
+            });
 
-      if (!targetAccount) {
-        throw new Error("DESTINATION_ACCOUNT_NOT_FOUND");
-      }
+            if (!targetAccount) {
+              throw new Error("DESTINATION_ACCOUNT_NOT_FOUND");
+            }
 
-      // Impedir transferência para a própria conta
-      if (originAccount.id === targetAccount.id) {
-        throw new Error("SAME_ACCOUNT");
-      }
+            // Impedir transferência para a própria conta
+            if (originAccount.id === targetAccount.id) {
+              throw new Error("SAME_ACCOUNT");
+            }
 
-      // Debitar conta de origem
-      const debit = await tx.account.updateMany({
-        where: {
-          id: originAccount.id,
-          balance: {
-            gte: amount,
+            // Debitar conta de origem
+            const debit = await tx.account.updateMany({
+              where: {
+                id: originAccount.id,
+                balance: {
+                  gte: amount,
+                },
+              },
+              data: {
+                balance: {
+                  decrement: amount,
+                },
+              },
+            });
+
+            if (debit.count === 0) {
+              throw new Error("INSUFFICIENT_BALANCE");
+            }
+
+            // Creditar conta de destino
+            await tx.account.update({
+              where: {
+                id: targetAccount.id,
+              },
+              data: {
+                balance: {
+                  increment: amount,
+                },
+              },
+            });
+
+            // Registrar transferência
+            const transaction = await tx.transaction.create({
+              data: {
+                type: "TRANSFER",
+                status: "COMPLETED",
+                amount,
+                description: "Transferência bancária",
+                fromAccountId: originAccount.id,
+                toAccountId: targetAccount.id,
+              },
+            });
+
+            // Consultar saldo atualizado
+            const updatedAccount = await tx.account.findUnique({
+              where: {
+                id: originAccount.id,
+              },
+            });
+
+            if (!updatedAccount) {
+              throw new Error("ORIGIN_ACCOUNT_NOT_FOUND");
+            }
+
+            return {
+              transactionId: transaction.id,
+              destinationAccount: targetAccount.accountNumber,
+              balance: updatedAccount.balance,
+              destinationUserId: targetAccount.userId,
+            };
           },
-        },
-        data: {
-          balance: {
-            decrement: amount,
-          },
-        },
-      });
+          {
+            isolationLevel: "Serializable",
+          }
+        );
 
-      if (debit.count === 0) {
-        throw new Error("INSUFFICIENT_BALANCE");
+        // Transferência concluída
+        break;
+
+      } catch (error) {
+        const errorCode =
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error
+            ? error.code
+            : undefined;
+
+        // Repetir somente em conflitos de concorrência
+        if (errorCode === "P2034" && attempt < 2) {
+          continue;
+        }
+
+        throw error;
       }
+    }
 
-      // Creditar conta de destino
-      await tx.account.update({
-        where: {
-          id: targetAccount.id,
-        },
-        data: {
-          balance: {
-            increment: amount,
-          },
-        },
-      });
+    if (!result) {
+      throw new Error("TRANSFER_FAILED");
+    }
 
-      // Registrar transferência
-      const transaction = await tx.transaction.create({
-        data: {
-          type: "TRANSFER",
-          status: "COMPLETED",
-          amount,
-          description: "Transferência bancária",
-          fromAccountId: originAccount.id,
-          toAccountId: targetAccount.id,
-        },
-      });
-
-      // Consultar saldo atualizado
-      const updatedAccount = await tx.account.findUnique({
-        where: {
-          id: originAccount.id,
-        },
-      });
-
-      return {
-        transactionId: transaction.id,
-        destinationAccount: targetAccount.accountNumber,
-        balance: updatedAccount!.balance,
-        destinationUserId: targetAccount.userId
-      };
-    });
-
-    // Criar notificações da transferência
+    // Criar notificações
     const formattedAmount = Number(amount).toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
@@ -1452,7 +1483,10 @@ router.post("/transfer", authMiddleware, async (req: AuthRequest, res) => {
     console.error("Erro ao realizar transferência:", error);
 
     if (error instanceof Error) {
-      const errors: Record<string, { status: number; message: string }> = {
+      const errors: Record<
+        string,
+        { status: number; message: string }
+      > = {
         ORIGIN_ACCOUNT_NOT_FOUND: {
           status: 404,
           message: "Conta de origem não encontrada.",

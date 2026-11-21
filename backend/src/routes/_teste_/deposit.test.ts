@@ -28,6 +28,9 @@ const mockPrisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
+  notification: {
+    create: jest.fn(),
+  },
 
   $transaction: jest.fn<
     (
@@ -37,6 +40,22 @@ const mockPrisma = {
 };
 
 let app: Express;
+
+const JWT_SECRET = "chave-de-teste-silver-bank";
+
+function generateToken() {
+  return jwt.sign(
+    { sub: "user-123" },
+    JWT_SECRET,
+    {
+      expiresIn: "1h",
+      algorithm: "HS256",
+      issuer: "silver-bank-api",
+      audience: "silver-bank-users",
+    }
+  );
+}
+
 
 beforeAll(async () => {
   process.env.JWT_SECRET = "chave-de-teste-silver-bank";
@@ -72,10 +91,7 @@ describe("Operações bancárias - Depósitos", () => {
   });
 
   it("deve impedir depósito com valor inválido", async () => {
-    const token = jwt.sign(
-      { sub: "user-123" },
-      process.env.JWT_SECRET!
-    );
+    const token = generateToken();
 
     const response = await request(app)
       .post("/api/accounts/deposit")
@@ -90,10 +106,7 @@ describe("Operações bancárias - Depósitos", () => {
   });
 
   it("deve realizar depósito com sucesso", async () => {
-    const token = jwt.sign(
-      { sub: "user-123" },
-      process.env.JWT_SECRET!
-    );
+    const token = generateToken();
 
     mockTx.account.findFirst.mockResolvedValue({
       id: "account-123",
@@ -139,10 +152,7 @@ describe("Operações bancárias - Depósitos", () => {
   });
 
   it("deve retornar erro quando a conta não existir", async () => {
-    const token = jwt.sign(
-      { sub: "user-123" },
-      process.env.JWT_SECRET!
-    );
+    const token = generateToken();
 
     mockTx.account.findFirst.mockResolvedValue(null);
 

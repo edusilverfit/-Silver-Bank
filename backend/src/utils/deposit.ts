@@ -3,5 +3,9 @@ export function validateDeposit(amount: number): boolean {
     return false;
   }
 
-  return amount > 0;
+  if (amount <= 0 || amount > 100000) {
+    return false;
+  }
+
+  return true;
 }
